@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InSightPM
 
-## Getting Started
+InSightPM is a cloud-based project management platform designed to help individuals and teams organize, track, and manage projects efficiently. The platform provides secure authentication, project tracking, real-time cloud storage, and an intuitive user interface.
 
-First, run the development server:
+## Features
+
+- User Registration & Authentication
+- Secure Login & Logout
+- Project Creation
+- Project Editing
+- Project Deletion
+- Cloud-Based Storage
+- User-Specific Project Access
+- Responsive Design
+- Real-Time Data Persistence
+- Deployment on Vercel
+
+## Tech Stack
+
+### Frontend
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+
+### Backend
+- Next.js API Routes
+
+### Database
+- Firebase Firestore
+
+### Authentication
+- Firebase Authentication
+
+### Deployment
+- Vercel
+
+### Version Control
+- Git
+- GitHub
+
+## Architecture
+
+User
+↓
+Next.js Frontend
+↓
+Firebase Authentication
+↓
+API Routes
+↓
+Firestore Database
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/ChristianPlatel06/InSightPM.git
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a .env.local file:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment
 
-## Learn More
+The project is deployed using Vercel.
 
-To learn more about Next.js, take a look at the following resources:
+## Team
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Christian Platel
+- Harinath
+- Mansoordin
+- Sathish
+- Prathiksha
+- Priyadharshini
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Hackathon Project
