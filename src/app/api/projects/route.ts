@@ -48,6 +48,15 @@ export async function POST(request: Request) {
       status: body.status,
       progress: body.progress,
       dueDate: body.dueDate,
+      memberIds: [auth.user.uid],
+      members: [{
+        uid: auth.user.uid,
+        name: auth.user.name || auth.user.email || "Unknown",
+        email: auth.user.email || "",
+        role: "Owner",
+        skills: [],
+        completion: 0
+      }]
     });
 
     return json({ success: true, id: project.id, name: project.name, project }, 201);

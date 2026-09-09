@@ -54,3 +54,14 @@ export async function deleteProject(id: string): Promise<void> {
     await request(`/api/projects/${id}`, { method: "DELETE" }),
   );
 }
+
+export async function analyzeProject(id: string, updateText: string): Promise<Project> {
+  const data = await parseJson<{ project: Project }>(
+    await request(`/api/projects/${id}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ updateText }),
+    }),
+  );
+  return data.project;
+}

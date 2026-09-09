@@ -7,17 +7,23 @@ import {
 } from "@/lib/types";
 
 const COLLECTION = "projects";
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/(default)/documents`;
+export const BASE_URL = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/(default)/documents`;
 
-type FirestoreValue =
+export type FirestoreValue =
   | { stringValue: string }
   | { integerValue: string }
-  | { nullValue: "NULL_VALUE" };
+  | { doubleValue: number }
+  | { booleanValue: boolean }
+  | { nullValue: "NULL_VALUE" }
+  | { arrayValue: { values: FirestoreValue[] } }
+  | { mapValue: { fields: Record<string, FirestoreValue> } };
 
-type FirestoreDocument = {
+export interface FirestoreDocument {
   name?: string;
   fields?: Record<string, FirestoreValue>;
-};
+  createTime?: string;
+  updateTime?: string;
+}
 
 function asStatus(value: string): ProjectStatus {
   if (PROJECT_STATUSES.includes(value as ProjectStatus)) {
@@ -56,32 +62,54 @@ function docId(name: string | undefined): string {
   return name.split("/").pop() ?? "";
 }
 
-function toProject(doc: FirestoreDocument): Project {
-  const fields = doc.fields;
+function strArray(fields: Record<string, FirestoreValue> | undefined, key: string): string[] | null {
+  const value = fields?.[key] as any;
+  if (!value || !value.arrayValue || !value.arrayValue.values) return null;
+  return value.arrayValue.values.map((v: any) => v.stringValue || "");
+}
+
+export function toProject(doc: FirestoreDocument): Project {
+  const fields = doc.fields || {};
   return {
-    id: docId(doc.name),
+    id: doc.name?.split("/").pop() || "",
     name: str(fields, "name"),
     description: str(fields, "description"),
     owner: str(fields, "owner"),
     ownerId: str(fields, "ownerId"),
+    memberIds: strArray(fields, "memberIds") || [],
+    members: (fields.members as any)?.stringValue ? JSON.parse((fields.members as any).stringValue) : [],
     status: asStatus(str(fields, "status")),
     progress: asProgress(num(fields, "progress")),
     dueDate: nullable(fields, "dueDate"),
     createdAt: nullable(fields, "createdAt"),
     updatedAt: nullable(fields, "updatedAt"),
+    aiCompletionProbability: nullable(fields, "aiCompletionProbability"),
+    aiTopRisks: strArray(fields, "aiTopRisks"),
+    aiRecommendedActions: strArray(fields, "aiRecommendedActions"),
+    aiSuggestedPriorities: strArray(fields, "aiSuggestedPriorities"),
+    aiTeamPlan: (fields.aiTeamPlan as any)?.stringValue ? JSON.parse((fields.aiTeamPlan as any).stringValue) : null,
+    activities: (fields.activities as any)?.stringValue ? JSON.parse((fields.activities as any).stringValue) : [],
   };
 }
 
-function encode(data: {
+export function encode(data: {
   name: string;
   description: string;
   owner: string;
   ownerId: string;
+  memberIds?: string[];
+  members?: any[];
   status: ProjectStatus;
   progress: number;
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  aiCompletionProbability?: string | null;
+  aiTopRisks?: string[] | null;
+  aiRecommendedActions?: string[] | null;
+  aiSuggestedPriorities?: string[] | null;
+  aiTeamPlan?: any | null;
+  activities?: any[];
 }): Record<string, FirestoreValue> {
   return {
     name: { stringValue: data.name },
@@ -93,6 +121,30 @@ function encode(data: {
     dueDate: data.dueDate ? { stringValue: data.dueDate } : { nullValue: "NULL_VALUE" },
     createdAt: { stringValue: data.createdAt },
     updatedAt: { stringValue: data.updatedAt },
+    ...(data.memberIds !== undefined && {
+      memberIds: data.memberIds ? { arrayValue: { values: data.memberIds.map(a => ({ stringValue: a })) } } as any : { nullValue: "NULL_VALUE" }
+    }),
+    ...(data.members !== undefined && {
+      members: { stringValue: JSON.stringify(data.members) }
+    }),
+    ...(data.aiCompletionProbability !== undefined && { 
+      aiCompletionProbability: data.aiCompletionProbability ? { stringValue: data.aiCompletionProbability } : { nullValue: "NULL_VALUE" } 
+    }),
+    ...(data.aiTopRisks !== undefined && { 
+      aiTopRisks: data.aiTopRisks ? { arrayValue: { values: data.aiTopRisks.map(a => ({ stringValue: a })) } } as any : { nullValue: "NULL_VALUE" } 
+    }),
+    ...(data.aiRecommendedActions !== undefined && { 
+      aiRecommendedActions: data.aiRecommendedActions ? { arrayValue: { values: data.aiRecommendedActions.map(a => ({ stringValue: a })) } } as any : { nullValue: "NULL_VALUE" } 
+    }),
+    ...(data.aiSuggestedPriorities !== undefined && { 
+      aiSuggestedPriorities: data.aiSuggestedPriorities ? { arrayValue: { values: data.aiSuggestedPriorities.map(a => ({ stringValue: a })) } } as any : { nullValue: "NULL_VALUE" } 
+    }),
+    ...(data.aiTeamPlan !== undefined && {
+      aiTeamPlan: { stringValue: JSON.stringify(data.aiTeamPlan) }
+    }),
+    ...(data.activities !== undefined && {
+      activities: { stringValue: JSON.stringify(data.activities) }
+    }),
   };
 }
 
@@ -116,8 +168,8 @@ export async function listProjects(token: string, uid: string): Promise<Project[
         from: [{ collectionId: COLLECTION }],
         where: {
           fieldFilter: {
-            field: { fieldPath: "ownerId" },
-            op: "EQUAL",
+            field: { fieldPath: "memberIds" },
+            op: "ARRAY_CONTAINS",
             value: { stringValue: uid },
           },
         },
@@ -132,8 +184,30 @@ export async function listProjects(token: string, uid: string): Promise<Project[
   const rows = (await response.json()) as Array<{ document?: FirestoreDocument }>;
   return rows
     .map((row) => (row.document ? toProject(row.document) : null))
-    .filter((project): project is Project => Boolean(project && project.ownerId === uid))
+    .filter((project): project is Project => Boolean(project && (project.memberIds.includes(uid) || project.ownerId === uid)))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+export async function listAllProjectsForCron(): Promise<Project[]> {
+  const response = await fetch(`${BASE_URL}:runQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: COLLECTION }],
+      },
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not load projects for cron");
+  }
+
+  const rows = (await response.json()) as Array<{ document?: FirestoreDocument }>;
+  return rows
+    .map((row) => (row.document ? toProject(row.document) : null))
+    .filter((project): project is Project => Boolean(project));
 }
 
 export async function getProject(
@@ -146,7 +220,7 @@ export async function getProject(
   if (!response.ok) throw new Error("Could not load project");
 
   const project = toProject((await response.json()) as FirestoreDocument);
-  if (project.ownerId !== uid) return null;
+  if (!project.memberIds.includes(uid) && project.ownerId !== uid) return null;
   return project;
 }
 
@@ -161,6 +235,8 @@ export async function createProject(
     description: input.description?.trim() ?? "",
     owner: input.owner?.trim() ?? "",
     ownerId: uid,
+    memberIds: input.memberIds || [uid],
+    members: input.members || [],
     status: input.status ?? "Planned",
     progress: asProgress(input.progress ?? 0),
     dueDate: input.dueDate || null,
@@ -195,22 +271,38 @@ export async function updateProject(
       input.description !== undefined ? input.description.trim() : existing.description,
     owner: input.owner !== undefined ? input.owner.trim() : existing.owner,
     ownerId: existing.ownerId,
+    memberIds: input.memberIds !== undefined ? input.memberIds : existing.memberIds,
+    members: input.members !== undefined ? input.members : existing.members,
     status: input.status !== undefined ? asStatus(input.status) : existing.status,
     progress:
       input.progress !== undefined ? asProgress(input.progress) : existing.progress,
     dueDate: input.dueDate !== undefined ? input.dueDate || null : existing.dueDate,
     createdAt: existing.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    aiCompletionProbability: input.aiCompletionProbability !== undefined ? input.aiCompletionProbability : existing.aiCompletionProbability,
+    aiTopRisks: input.aiTopRisks !== undefined ? input.aiTopRisks : existing.aiTopRisks,
+    aiRecommendedActions: input.aiRecommendedActions !== undefined ? input.aiRecommendedActions : existing.aiRecommendedActions,
+    aiSuggestedPriorities: input.aiSuggestedPriorities !== undefined ? input.aiSuggestedPriorities : existing.aiSuggestedPriorities,
+    aiTeamPlan: input.aiTeamPlan !== undefined ? input.aiTeamPlan : existing.aiTeamPlan,
+    activities: input.activities !== undefined ? input.activities : existing.activities,
   };
 
   const mask = [
     "name",
     "description",
     "owner",
+    "memberIds",
+    "members",
     "status",
     "progress",
     "dueDate",
     "updatedAt",
+    "aiCompletionProbability",
+    "aiTopRisks",
+    "aiRecommendedActions",
+    "aiSuggestedPriorities",
+    "aiTeamPlan",
+    "activities"
   ]
     .map((field) => `updateMask.fieldPaths=${field}`)
     .join("&");

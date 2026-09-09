@@ -12,7 +12,12 @@ export async function POST(request: Request) {
       return json({ success: false, error: "Missing ID token" }, 400);
     }
 
-    await verifyIdToken(idToken);
+    const user = await verifyIdToken(idToken);
+    
+    // Sync profile to firestore
+    import("@/lib/users").then(({ syncUserProfile }) => {
+      syncUserProfile(idToken, user);
+    });
 
     const response = json({ success: true });
     response.headers.set(

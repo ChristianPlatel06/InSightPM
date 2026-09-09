@@ -1,33 +1,78 @@
+"use client";
+
 import Link from "next/link";
-import ProgressBar from "@/components/ProgressBar";
-import StatusBadge from "@/components/StatusBadge";
+import { motion } from "framer-motion";
+import { Calendar, Target, ChevronRight, Activity } from "lucide-react";
 import type { Project } from "@/lib/types";
+import { calculateRiskAssessment } from "@/lib/risk";
+import ProgressBar from "./ProgressBar";
+import StatusBadge from "./StatusBadge";
 
 export default function ProjectCard({ project }: { project: Project }) {
+  const risk = calculateRiskAssessment(project);
+
+  let isOverdue = false;
+  if (project.dueDate) {
+    const [y, m, d] = project.dueDate.split("-").map(Number);
+    if (y && m && d) {
+      const dueUTC = Date.UTC(y, m - 1, d);
+      const now = new Date();
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      isOverdue = todayUTC > dueUTC;
+    }
+  }
+
   return (
-    <Link
-      href={`/projects/${project.id}`}
-      className="block rounded-2xl border border-slate-800 bg-slate-900 p-5 transition hover:border-slate-700 hover:bg-slate-900/80"
+    <motion.div
+      whileHover={{ y: -4 }}
+      className="group relative flex flex-col rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-sm transition-all hover:border-white/20 hover:shadow-xl hover:shadow-black/50 overflow-hidden"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-white">
-            {project.name || "Untitled project"}
-          </h3>
-          <p className="mt-1 line-clamp-2 text-sm text-slate-400">
-            {project.description || "No description yet."}
-          </p>
-        </div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+      
+      <div className="flex items-start justify-between mb-4 z-10">
+        <h3 className="text-xl font-semibold text-white tracking-tight line-clamp-1">{project.name}</h3>
         <StatusBadge status={project.status} />
       </div>
 
-      <div className="mt-4">
-        <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-          <span>{project.owner || "Unassigned"}</span>
-          <span>{project.progress}%</span>
+      <p className="mb-6 text-sm text-slate-400 line-clamp-2 min-h-[40px] z-10">
+        {project.description || "No description provided."}
+      </p>
+
+      <div className="mb-6 z-10">
+        <div className="flex justify-between items-end mb-2">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <Activity className="w-3.5 h-3.5" /> Progress
+          </div>
+          <span className="text-sm font-semibold text-white">{project.progress}%</span>
         </div>
         <ProgressBar value={project.progress} />
       </div>
-    </Link>
+
+      <div className="mt-auto grid grid-cols-2 gap-4 border-t border-white/5 pt-4 z-10">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Target className="w-3.5 h-3.5"/> Owner</span>
+          <span className="text-sm font-medium text-slate-200 truncate">{project.owner || "Unassigned"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Calendar className="w-3.5 h-3.5"/> Due</span>
+          <span className={`text-sm font-medium ${isOverdue ? 'text-rose-400' : 'text-slate-200'}`}>
+            {project.dueDate ? project.dueDate : "No Date"}
+          </span>
+        </div>
+      </div>
+
+      {/* Risk Engine Overlay */}
+      <div className={`mt-4 rounded-lg border ${risk.color} p-2 flex items-center justify-between z-10`}>
+        <span className="text-xs font-semibold uppercase tracking-wider">Risk: {risk.level}</span>
+        <span className="text-xs opacity-80">{risk.score}/100</span>
+      </div>
+
+      <Link
+        href={`/projects/${project.id}`}
+        className="absolute inset-0 z-20 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl"
+      >
+        <span className="sr-only">View project details</span>
+      </Link>
+    </motion.div>
   );
 }

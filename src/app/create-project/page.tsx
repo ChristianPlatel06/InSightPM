@@ -1,137 +1,106 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { useAuth } from "@/components/AuthProvider";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { postProject } from "@/lib/api";
-import { PROJECT_STATUSES, type ProjectStatus } from "@/lib/types";
 
 export default function CreateProjectPage() {
   const router = useRouter();
-  const { user } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [owner, setOwner] = useState("");
-  const [status, setStatus] = useState<ProjectStatus>("Planned");
-  const [progress, setProgress] = useState(0);
   const [dueDate, setDueDate] = useState("");
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const ownerValue = owner || user?.displayName || user?.email || "";
+  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setLoading(true);
     setError("");
-    setSaving(true);
-
     try {
-      const project = await postProject({
-        name,
-        description,
-        owner: ownerValue,
-        status,
-        progress,
-        dueDate: dueDate || null,
-      });
-      router.push(`/projects/${project.id}`);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not create project");
-    } finally {
-      setSaving(false);
+      await postProject({ name, description, dueDate: dueDate || null });
+      router.push("/projects");
+    } catch (err: any) {
+      setError(err.message || "Could not create project");
+      setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="text-3xl font-bold text-white">Create project</h1>
-      <p className="mt-2 text-slate-400">
-        Save a new project to Firestore and open its monitoring page.
-      </p>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-xl mx-auto pt-10 pb-20"
+    >
+      <Link href="/projects" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-8">
+        <ArrowLeft className="w-4 h-4" /> Back to Workspace
+      </Link>
+      
+      <div className="mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">Create New Project</h1>
+        <p className="text-slate-400">Set up the foundation. The AI Risk Engine will start tracking immediately.</p>
+      </div>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-        <label className="block">
-          <span className="mb-1.5 block text-sm text-slate-300">Project name</span>
+      <form onSubmit={onSubmit} className="space-y-6 bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+        {/* Subtle decorative gradient */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none -z-10" />
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">Project Name</label>
           <input
-            required
+            autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-sky-500"
-            placeholder="Student goals tracker"
+            placeholder="e.g., Marketing Site Redesign"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+            required
           />
-        </label>
+        </div>
 
-        <label className="block">
-          <span className="mb-1.5 block text-sm text-slate-300">Description</span>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">Description <span className="text-slate-500 font-normal">(Optional)</span></label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="Briefly describe the project goals..."
             rows={4}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-sky-500"
-            placeholder="What is this project delivering?"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
           />
-        </label>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-slate-300">Owner</span>
-            <input
-              value={ownerValue}
-              onChange={(e) => setOwner(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-sky-500"
-              placeholder="Alex Rivera"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-slate-300">Due date</span>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-sky-500"
-            />
-          </label>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-slate-300">Status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-sky-500"
-            >
-              {PROJECT_STATUSES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm text-slate-300">Progress ({progress}%)</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              className="mt-3 w-full"
-            />
-          </label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">Target Due Date <span className="text-slate-500 font-normal">(Optional)</span></label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all [color-scheme:dark]"
+          />
         </div>
 
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        {error && (
+          <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="text-sm text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+            {error}
+          </motion.p>
+        )}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-xl bg-sky-500 px-4 py-2.5 font-medium text-white hover:bg-sky-400 disabled:opacity-60 sm:w-auto"
-        >
-          {saving ? "Creating…" : "Create project"}
-        </button>
+        <div className="pt-4 flex items-center justify-end border-t border-white/5">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={loading || !name.trim()}
+            className="rounded-full bg-white text-black px-8 py-3 font-semibold hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:hover:bg-white flex items-center gap-2"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+            Initialize Project
+          </motion.button>
+        </div>
       </form>
-    </div>
+    </motion.div>
   );
 }
