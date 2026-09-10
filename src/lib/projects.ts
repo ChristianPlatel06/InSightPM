@@ -320,8 +320,7 @@ export async function updateProject(
     throw new Error("Could not update project");
   }
 
-  const project = toProject((await response.json()) as FirestoreDocument);
-  return project.ownerId === uid ? project : null;
+  return toProject((await response.json()) as FirestoreDocument);
 }
 
 export async function removeProject(

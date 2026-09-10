@@ -1,6 +1,7 @@
 import json from "@/lib/json";
 import { SESSION_COOKIE } from "@/lib/auth-errors";
 import { verifyIdToken } from "@/lib/auth-server";
+import { syncUserProfile } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,7 @@ export async function POST(request: Request) {
     const user = await verifyIdToken(idToken);
     
     // Sync profile to firestore
-    import("@/lib/users").then(({ syncUserProfile }) => {
-      syncUserProfile(idToken, user);
-    });
+    await syncUserProfile(idToken, user);
 
     const response = json({ success: true });
     response.headers.set(

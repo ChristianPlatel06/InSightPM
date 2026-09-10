@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { LogOut, LayoutDashboard, Settings } from "lucide-react";
+import { LogOut, LayoutDashboard } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 
 export default function Navbar() {
@@ -31,23 +30,18 @@ export default function Navbar() {
             Dashboard
           </Link>
 
-          <Link 
-            href="/invitations" 
-            className={`flex items-center gap-2 text-sm font-medium transition-colors ${pathname.includes("/invitations") ? "text-white" : "text-slate-400 hover:text-white"}`}
-          >
-            <Settings className="w-4 h-4" />
-            Invitations
-          </Link>
-
           <div className="h-4 w-px bg-white/10" />
 
-          <button
-            onClick={() => logOut()}
-            className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-rose-400 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400 hidden sm:block">{user.displayName || user.email}</span>
+            <button
+              onClick={() => logOut()}
+              className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-rose-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </nav>
       </div>
     </header>

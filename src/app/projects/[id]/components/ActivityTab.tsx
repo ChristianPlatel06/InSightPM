@@ -17,7 +17,7 @@ export default function ActivityTab({ project }: { project: Project }) {
         <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 border-dashed bg-[#0a0a0a]/50 p-16 text-center backdrop-blur-sm">
           <ActivityIcon className="w-10 h-10 text-slate-600 mb-4" />
           <h3 className="mb-1 text-lg font-medium text-white">No activity yet</h3>
-          <p className="text-sm text-slate-400">Updates, invites, and team events will appear here.</p>
+          <p className="text-sm text-slate-400">Team changes, role updates, and project events will appear here.</p>
         </div>
       ) : (
         <div className="relative border-l border-white/10 ml-4 space-y-8 py-4">

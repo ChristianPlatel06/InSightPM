@@ -2,24 +2,22 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Calendar, Target, ChevronRight, Activity } from "lucide-react";
+import { Calendar, Target, Activity, Users, ShieldAlert } from "lucide-react";
 import type { Project } from "@/lib/types";
-import { calculateRiskAssessment } from "@/lib/risk";
+import { calculateRiskAssessment, formatIndianDate, calculateDaysRemaining } from "@/lib/risk";
 import ProgressBar from "./ProgressBar";
 import StatusBadge from "./StatusBadge";
 
 export default function ProjectCard({ project }: { project: Project }) {
   const risk = calculateRiskAssessment(project);
+  const daysLeft = calculateDaysRemaining(project.dueDate);
+  const isOverdue = daysLeft !== null && daysLeft < 0;
 
-  let isOverdue = false;
-  if (project.dueDate) {
-    const [y, m, d] = project.dueDate.split("-").map(Number);
-    if (y && m && d) {
-      const dueUTC = Date.UTC(y, m - 1, d);
-      const now = new Date();
-      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      isOverdue = todayUTC > dueUTC;
-    }
+  let dueLine = formatIndianDate(project.dueDate);
+  if (daysLeft !== null) {
+    if (daysLeft < 0) dueLine += ` (${Math.abs(daysLeft)}d overdue)`;
+    else if (daysLeft === 0) dueLine += " (Today!)";
+    else if (daysLeft <= 7) dueLine += ` (${daysLeft}d left)`;
   }
 
   return (
@@ -48,7 +46,7 @@ export default function ProjectCard({ project }: { project: Project }) {
         <ProgressBar value={project.progress} />
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-4 border-t border-white/5 pt-4 z-10">
+      <div className="mt-auto grid grid-cols-3 gap-3 border-t border-white/5 pt-4 z-10">
         <div className="flex flex-col">
           <span className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Target className="w-3.5 h-3.5"/> Owner</span>
           <span className="text-sm font-medium text-slate-200 truncate">{project.owner || "Unassigned"}</span>
@@ -56,15 +54,22 @@ export default function ProjectCard({ project }: { project: Project }) {
         <div className="flex flex-col">
           <span className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Calendar className="w-3.5 h-3.5"/> Due</span>
           <span className={`text-sm font-medium ${isOverdue ? 'text-rose-400' : 'text-slate-200'}`}>
-            {project.dueDate ? project.dueDate : "No Date"}
+            {dueLine}
           </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Users className="w-3.5 h-3.5"/> Team</span>
+          <span className="text-sm font-medium text-slate-200">{project.members?.length || 1} member{(project.members?.length || 1) !== 1 ? "s" : ""}</span>
         </div>
       </div>
 
       {/* Risk Engine Overlay */}
-      <div className={`mt-4 rounded-lg border ${risk.color} p-2 flex items-center justify-between z-10`}>
-        <span className="text-xs font-semibold uppercase tracking-wider">Risk: {risk.level}</span>
-        <span className="text-xs opacity-80">{risk.score}/100</span>
+      <div className={`mt-4 rounded-xl border ${risk.color} p-2.5 flex items-center justify-between z-10`}>
+        <div className="flex items-center gap-1.5">
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span className="text-xs font-semibold uppercase tracking-wider">Risk: {risk.level}</span>
+        </div>
+        <span className="text-xs font-bold opacity-80">{risk.score}/100</span>
       </div>
 
       <Link

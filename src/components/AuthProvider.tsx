@@ -57,7 +57,7 @@ async function persistSession(user: User | null): Promise<void> {
     return;
   }
 
-  const idToken = await user.getIdToken();
+  const idToken = await user.getIdToken(true);
   const response = await fetch("/api/auth/session", {
     method: "POST",
     credentials: "include",

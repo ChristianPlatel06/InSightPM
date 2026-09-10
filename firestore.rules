@@ -5,23 +5,36 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner() {
-      return signedIn() && resource.data.ownerId == request.auth.uid;
+    // Users collection — any authenticated user can read profiles (for search)
+    // Users can only write their own profile
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
     }
 
+    // Projects — members and owners can read/update
+    // Owners can delete
+    // New members being added can update (their uid appears in request.resource.data.memberIds)
     match /projects/{projectId} {
-      allow read: if isOwner();
-      allow create: if signedIn()
-        && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isOwner()
-        && request.resource.data.ownerId == resource.data.ownerId;
-      allow delete: if isOwner();
+      allow read: if signedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        request.auth.uid in resource.data.memberIds
+      );
+      allow create: if signedIn() && (
+        request.resource.data.ownerId == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        request.auth.uid in resource.data.memberIds ||
+        request.auth.uid in request.resource.data.memberIds
+      );
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
 
+    // Test collection (legacy)
     match /test/{docId} {
-      allow create: if signedIn()
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if isOwner();
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
   }
 }

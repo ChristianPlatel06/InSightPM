@@ -38,15 +38,12 @@ export async function getUserProfile(token: string, uid: string): Promise<UserPr
   return toUserProfile(await response.json());
 }
 
+/**
+ * Always upsert user profile — create if missing, update displayName/email/avatar if changed.
+ * Called on every login/session creation.
+ */
 export async function syncUserProfile(token: string, user: { uid: string; email: string | null; name: string | null; picture: string | null }) {
   try {
-    const existing = await getUserProfile(token, user.uid);
-    if (existing) {
-      // Could patch updates here, but skipping to save tokens if it already exists
-      return existing;
-    }
-    
-    // Create new user profile
     const payload = encodeUserProfile({
       uid: user.uid,
       displayName: user.name || user.email || "Unknown User",
@@ -57,11 +54,32 @@ export async function syncUserProfile(token: string, user: { uid: string; email:
       createdAt: new Date().toISOString(),
     });
 
-    await fetch(`${BASE_URL}/${COLLECTION}?documentId=${user.uid}`, {
-      method: "POST",
+    // Use PATCH with updateMask to upsert — creates doc if missing, updates if exists.
+    // Only update displayName, email, avatar — don't overwrite skills/roleTitle/createdAt if they already exist.
+    const mask = "updateMask.fieldPaths=displayName&updateMask.fieldPaths=email&updateMask.fieldPaths=avatar";
+    const res = await fetch(`${BASE_URL}/${COLLECTION}/${user.uid}?${mask}`, {
+      method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: payload }),
+      body: JSON.stringify({
+        fields: {
+          displayName: { stringValue: user.name || user.email || "Unknown User" },
+          email: { stringValue: user.email || "" },
+          avatar: { stringValue: user.picture || "" },
+        }
+      }),
     });
+
+    if (!res.ok) {
+      // If PATCH fails (doc doesn't exist and rules block partial create), try POST
+      const createRes = await fetch(`${BASE_URL}/${COLLECTION}?documentId=${user.uid}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: payload }),
+      });
+      if (!createRes.ok && createRes.status !== 409) {
+        console.error("Failed to create user profile, status:", createRes.status);
+      }
+    }
   } catch (e) {
     console.error("Failed to sync user profile", e);
   }
@@ -74,7 +92,7 @@ export async function searchUsers(token: string, query: string): Promise<UserPro
     body: JSON.stringify({
       structuredQuery: {
         from: [{ collectionId: COLLECTION }],
-        limit: 10
+        limit: 100
       },
     }),
     cache: "no-store",
@@ -82,7 +100,7 @@ export async function searchUsers(token: string, query: string): Promise<UserPro
 
   if (!response.ok) throw new Error("Search failed");
   const rows = (await response.json()) as Array<{ document?: FirestoreDocument }>;
-  
+
   const q = query.toLowerCase();
   return rows
     .map(row => row.document ? toUserProfile(row.document) : null)

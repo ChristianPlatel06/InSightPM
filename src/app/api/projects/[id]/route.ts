@@ -37,6 +37,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       status?: ProjectStatus;
       progress?: number;
       dueDate?: string | null;
+      memberIds?: string[];
+      members?: any[];
+      activities?: any[];
     };
 
     if (body.status && !PROJECT_STATUSES.includes(body.status)) {

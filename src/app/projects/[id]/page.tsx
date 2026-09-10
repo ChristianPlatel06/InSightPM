@@ -9,7 +9,7 @@ import ProgressBar from "@/components/ProgressBar";
 import StatusBadge from "@/components/StatusBadge";
 import { analyzeProject, deleteProject, fetchProject, patchProject } from "@/lib/api";
 import { PROJECT_STATUSES, type Project, type ProjectStatus } from "@/lib/types";
-import { calculateRiskAssessment } from "@/lib/risk";
+import { calculateRiskAssessment, formatIndianDate, calculateDaysRemaining } from "@/lib/risk";
 
 import TeamTab from "./components/TeamTab";
 import AIPlannerTab from "./components/AIPlannerTab";
@@ -107,28 +107,20 @@ export default function ProjectDetailsPage() {
 
   let countdownStr = "No deadline";
   let countdownColor = "text-slate-400";
-  if (project.dueDate) {
-    const [year, month, day] = project.dueDate.split("-").map(Number);
-    if (year && month && day) {
-      const dueUTC = Date.UTC(year, month - 1, day);
-      const msLeft = dueUTC - Date.now();
-      
-      const daysLeft = Math.floor(msLeft / (1000 * 60 * 60 * 24));
-      const hoursLeft = Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      
-      if (msLeft < 0) {
-        countdownStr = `Overdue by ${Math.abs(daysLeft)} days`;
-        countdownColor = "text-rose-400";
-      } else if (daysLeft === 0) {
-        countdownStr = `${hoursLeft} hours remaining`;
-        countdownColor = "text-orange-400";
-      } else if (daysLeft <= 3) {
-        countdownStr = `${daysLeft} days, ${hoursLeft} hrs left`;
-        countdownColor = "text-amber-400";
-      } else {
-        countdownStr = `${daysLeft} days remaining`;
-        countdownColor = "text-emerald-400";
-      }
+  const daysLeft = calculateDaysRemaining(project.dueDate);
+  if (daysLeft !== null) {
+    if (daysLeft < 0) {
+      countdownStr = `Overdue by ${Math.abs(daysLeft)} days`;
+      countdownColor = "text-rose-400";
+    } else if (daysLeft === 0) {
+      countdownStr = "Deadline is today!";
+      countdownColor = "text-orange-400";
+    } else if (daysLeft <= 3) {
+      countdownStr = `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left`;
+      countdownColor = "text-amber-400";
+    } else {
+      countdownStr = `${daysLeft} days remaining`;
+      countdownColor = "text-emerald-400";
     }
   }
 
@@ -174,7 +166,7 @@ export default function ProjectDetailsPage() {
             <span className="text-sm font-medium">Due Date</span>
           </div>
           <p className="text-2xl font-semibold text-white">
-            {project.dueDate ? project.dueDate : "Not set"}
+            {formatIndianDate(project.dueDate)}
           </p>
         </motion.div>
 

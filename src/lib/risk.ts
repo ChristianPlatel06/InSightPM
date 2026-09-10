@@ -1,5 +1,24 @@
 import type { Project, RiskAssessment } from "@/lib/types";
 
+/** Format an ISO date string (YYYY-MM-DD) as DD/MM/YYYY for display */
+export function formatIndianDate(iso: string | null | undefined): string {
+  if (!iso) return "Not set";
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return iso;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/** Calculate days remaining (positive) or overdue (negative) from an ISO date */
+export function calculateDaysRemaining(dueDate: string | null | undefined): number | null {
+  if (!dueDate) return null;
+  const match = dueDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const dueUTC = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const now = new Date();
+  const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.floor((dueUTC - todayUTC) / 86400000);
+}
+
 export function calculateRiskAssessment(project: Project): RiskAssessment {
   if (project.status === "Completed") {
     return {
@@ -11,9 +30,10 @@ export function calculateRiskAssessment(project: Project): RiskAssessment {
   }
 
   let score = 0;
-  
-  // Progress baseline
-  score += Math.max(0, 100 - project.progress);
+
+  // Progress baseline — remaining work as risk
+  const remaining = Math.max(0, 100 - project.progress);
+  score += remaining;
 
   // Status modifiers
   if (project.status === "Delayed") score += 30;
@@ -21,39 +41,26 @@ export function calculateRiskAssessment(project: Project): RiskAssessment {
 
   // Due date modifier
   let explanation = "Project is tracking smoothly.";
-  if (project.dueDate) {
-    // Parse dueDate as UTC strictly to avoid timezone shift
-    // project.dueDate is expected to be "YYYY-MM-DD"
-    const [year, month, day] = project.dueDate.split("-").map(Number);
-    if (year && month && day) {
-      const dueUTC = Date.UTC(year, month - 1, day);
-      const now = new Date();
-      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      
-      const daysLeft = Math.floor((dueUTC - todayUTC) / 86400000);
-      
-      if (daysLeft < 0) {
-        score += 50; // Overdue
-        explanation = `Project is overdue by ${Math.abs(daysLeft)} days.`;
-      } else if (daysLeft === 0) {
-        if (project.progress < 90) score += 45;
-        explanation = `Deadline is today!`;
-      } else if (daysLeft <= 3) {
-        if (project.progress < 80) score += 40;
-        explanation = `Critically close to deadline with ${100 - project.progress}% remaining.`;
-      } else if (daysLeft <= 7) {
-        if (project.progress < 60) score += 25;
-        explanation = "Deadline approaching; progress is lagging.";
-      } else if (daysLeft > 14 && project.progress < 10) {
-        explanation = "Early phases, plenty of runway.";
-      }
-    } else {
-      explanation = "Invalid due date format.";
-      score += 10;
-    }
-  } else {
+  const daysLeft = calculateDaysRemaining(project.dueDate);
+
+  if (daysLeft === null) {
     explanation = "No due date set, making progress hard to track.";
     score += 10;
+  } else if (daysLeft < 0) {
+    const overdueDays = Math.abs(daysLeft);
+    score += 50;
+    explanation = `Project is overdue by ${overdueDays} day${overdueDays !== 1 ? "s" : ""}.`;
+  } else if (daysLeft === 0) {
+    if (project.progress < 90) score += 45;
+    explanation = "Deadline is today!";
+  } else if (daysLeft <= 3) {
+    if (project.progress < 80) score += 40;
+    explanation = `Critically close to deadline with ${remaining}% remaining.`;
+  } else if (daysLeft <= 7) {
+    if (project.progress < 60) score += 25;
+    explanation = `Deadline approaching with ${remaining}% remaining.`;
+  } else if (daysLeft > 14 && project.progress < 10) {
+    explanation = "Early phases, plenty of runway.";
   }
 
   score = Math.min(100, Math.max(0, score));
