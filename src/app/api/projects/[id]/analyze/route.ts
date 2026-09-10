@@ -28,7 +28,7 @@ export async function POST(request: Request, context: RouteContext) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("GEMINI_API_KEY is not set in environment variables");
-      return json({ success: false, error: "API key configuration missing" }, 500);
+      return json({ success: false, error: "API configuration key is missing. Please set GEMINI_API_KEY in your environment variables." }, 500);
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -56,31 +56,56 @@ export async function POST(request: Request, context: RouteContext) {
     `;
 
     console.log(`Calling Gemini API for project ${id}...`);
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            newProgress: { type: "INTEGER", description: "The updated progress 0-100" },
-            newStatus: { 
-                type: "STRING", 
-                enum: PROJECT_STATUSES.map(s => s),
-                description: "The updated status" 
-            },
-            completionProbability: { type: "STRING", description: "Probability of completing on time" },
-            topRisks: { type: "ARRAY", items: { type: "STRING" }, description: "Top risks identified" },
-            recommendedActions: { type: "ARRAY", items: { type: "STRING" }, description: "Recommended actions to take" },
-            suggestedPriorities: { type: "ARRAY", items: { type: "STRING" }, description: "Suggested priorities for the team" }
-          },
-          required: ["newProgress", "newStatus", "completionProbability", "topRisks", "recommendedActions", "suggestedPriorities"]
+    
+    let response;
+    const retries = 3;
+    let attempt = 0;
+    
+    while (attempt < retries) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                newProgress: { type: "INTEGER", description: "The updated progress 0-100" },
+                newStatus: { 
+                    type: "STRING", 
+                    enum: PROJECT_STATUSES.map(s => s),
+                    description: "The updated status" 
+                },
+                completionProbability: { type: "STRING", description: "Probability of completing on time" },
+                topRisks: { type: "ARRAY", items: { type: "STRING" }, description: "Top risks identified" },
+                recommendedActions: { type: "ARRAY", items: { type: "STRING" }, description: "Recommended actions to take" },
+                suggestedPriorities: { type: "ARRAY", items: { type: "STRING" }, description: "Suggested priorities for the team" }
+              },
+              required: ["newProgress", "newStatus", "completionProbability", "topRisks", "recommendedActions", "suggestedPriorities"]
+            }
+          }
+        });
+        break; // Success, exit retry loop
+      } catch (error: unknown) {
+        attempt++;
+        const err = error as any;
+        const status = err?.status || err?.response?.status;
+        const message = err?.message || "";
+        
+        if (status === 503 || message.includes("503") || message.includes("UNAVAILABLE") || message.includes("high demand")) {
+          if (attempt >= retries) {
+            return json({ success: false, error: "Gemini is currently experiencing high demand. Please try again in a few moments." }, 503);
+          }
+          console.warn(`Gemini API 503 error. Retrying attempt ${attempt} of ${retries}...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential-ish backoff
+        } else {
+          throw error; // Re-throw non-503 errors
         }
       }
-    });
+    }
 
-    if (!response.text) {
+    if (!response || !response.text) {
       throw new Error("AI returned empty response");
     }
 
@@ -106,6 +131,10 @@ export async function POST(request: Request, context: RouteContext) {
       console.error("404 Error: The specified Gemini model might not exist or is deprecated.");
     }
     const message = error instanceof Error ? error.message : "Unknown error";
-    return json({ success: false, error: message, details: errObj?.message || error }, 500);
+    // Avoid raw JSON strings in UI
+    if (message.includes("{") && message.includes("}")) {
+      return json({ success: false, error: "An unexpected error occurred while communicating with the AI service." }, 500);
+    }
+    return json({ success: false, error: message }, 500);
   }
 }

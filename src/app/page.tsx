@@ -70,7 +70,7 @@ export default function Dashboard() {
           </h1>
         </div>
         <p className="text-xl text-slate-400 max-w-xl mx-auto">
-          InSightPM uses advanced risk engines and Gemini 3.5 Flash to automatically analyze deadlines, predict blockers, and keep your team shipping.
+          InSightPM uses advanced risk engines and Gemini 2.5 Flash to automatically analyze deadlines, predict blockers, and keep your team shipping.
         </p>
         <Link href="/login" className="mt-8 rounded-full bg-white text-black px-8 py-4 font-semibold hover:bg-slate-200 transition-colors inline-flex items-center gap-2">
           Start Managing <ChevronRight className="w-5 h-5"/>

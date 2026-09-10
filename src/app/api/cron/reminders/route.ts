@@ -65,7 +65,7 @@ export async function GET(request: Request) {
             Write a 2-sentence encouraging but urgent recommendation for the project owner to ensure they meet the deadline.
           `;
           const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-2.5-flash",
             contents: prompt,
           });
           if (response.text) {
@@ -109,8 +109,9 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ success: true, processed: upcomingDeadlines.length, results });
-  } catch (error: any) {
-    console.error("CRON Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error("CRON Error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

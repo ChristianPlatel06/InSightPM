@@ -235,7 +235,7 @@ export default function ProjectDetailsPage() {
                     </div>
                     <h2 className="text-xl font-semibold text-white">AI Project Advisor</h2>
                   </div>
-                  <span className="text-xs text-indigo-300 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">Gemini 3.5 Flash</span>
+                  <span className="text-xs text-indigo-300 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">Gemini 2.5 Flash</span>
                 </div>
                 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
